@@ -1,1 +1,1 @@
-following the course - https://fullstackopen.com/en/
+Project following the course - https://fullstackopen.com/en/
