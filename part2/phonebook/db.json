@@ -1,0 +1,19 @@
+{
+  "persons": [
+    {
+      "name": "Arto Hellas",
+      "number": "13",
+      "id": "1"
+    },
+    {
+      "name": "Dan Abramov",
+      "number": "3",
+      "id": "3"
+    },
+    {
+      "name": "Mary Poppendieck",
+      "number": "45",
+      "id": "4"
+    }
+  ]
+}

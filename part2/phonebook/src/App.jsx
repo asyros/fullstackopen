@@ -1,30 +1,95 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import personService from "./services/persons";
 
 const App = () => {
-  const [persons, setPersons] = useState([
-    { name: "Arto Hellas", number: "040-1234567" },
-    { name: "Ada Lovelace", number: "39-44-5323523", id: 2 },
-    { name: "Dan Abramov", number: "12-43-234345", id: 3 },
-    { name: "Mary Poppendieck", number: "39-23-6423122", id: 4 },
-  ]);
+  const [persons, setPersons] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [filterActive, setFilterActive] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
+  const [errorMessage, setErrorMessage] = useState(null);
+  const [notificationMessage, setNotificationMessage] = useState(null);
+
+  useEffect(() => {
+    personService
+      .getAll()
+      .then((data) => {
+        setPersons(data);
+      })
+      .catch((error) => {
+        alert("Failed to fetch persons from server");
+      });
+  }, []);
 
   const addPerson = (e) => {
     e.preventDefault();
     const alreadyInContacts = persons.find((p) => p.name === newName);
-    if (alreadyInContacts) {
+    const phoneNumberUpdate =
+      alreadyInContacts && newNumber !== alreadyInContacts.number;
+    if (phoneNumberUpdate) {
+      if (
+        window.confirm(
+          `${newName} is already added to the phonebook, replace the old number with a new one?`
+        )
+      ) {
+        updatePerson({ ...alreadyInContacts, number: newNumber });
+      }
+    } else if (alreadyInContacts && !phoneNumberUpdate) {
       alert(`${newName} is already added to phonebook`);
     } else {
       const newPerson = {
         name: newName,
         number: newNumber,
       };
-      setPersons(persons.concat(newPerson));
-      setNewName("");
-      setNewNumber("");
+      personService.create(newPerson).then((res) => {
+        setPersons(persons.concat({ ...newPerson, id: res.id }));
+        setNewName("");
+        setNewNumber("");
+        setNotificationMessage(`Added ${newName}`);
+        setTimeout(() => {
+          setNotificationMessage(null);
+        }, 5000);
+        if (errorMessage) {
+          setErrorMessage(null);
+        }
+      });
+    }
+  };
+
+  const deletePerson = (id) => {
+    const personToDelete = persons.filter((person) => person.id == id);
+    if (personToDelete) {
+      personService.deletePerson(id);
+      setPersons(persons.filter((person) => person.id != id));
+    }
+  };
+
+  const updatePerson = ({ name, id, number }) => {
+    const personToUpdate = persons.filter((person) => person.id == id);
+    if (personToUpdate) {
+      personService
+        .update(id, { name, number })
+        .then((res) => {
+          setPersons(persons.map((person) => (person.id == id ? res : person)));
+          setNotificationMessage(`Updated ${newName}'s number`);
+          setTimeout(() => {
+            setNotificationMessage(null);
+          }, 5000);
+          if (errorMessage) {
+            setErrorMessage(null);
+          }
+        })
+        .catch((error) => {
+          if (error.response.status == 404) {
+            setErrorMessage(
+              `Information of ${name} has already been removed from the server`
+            );
+            setTimeout(() => {
+              setErrorMessage(null);
+            }, 5000);
+            setPersons(persons.filter((person) => person.id != id));
+          }
+        });
     }
   };
 
@@ -45,10 +110,10 @@ const App = () => {
     }
   };
 
-  const displayPersons = ({ name, number }) => {
+  const displayPersons = ({ name, number, id }) => {
     return (
       <p key={name}>
-        {name} {number}
+        {name} {number} <button onClick={() => deletePerson(id)}>delete</button>
       </p>
     );
   };
@@ -56,6 +121,10 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification
+        errorMessage={errorMessage}
+        notificationMessage={notificationMessage}
+      />
       <Filter
         searchFilter={searchFilter}
         handleSearchFilterInput={handleSearchFilterInput}
@@ -120,3 +189,27 @@ const Persons = ({ filterActive, persons, searchFilter, displayPersons }) => {
   }
 };
 export default App;
+
+const Notification = ({ errorMessage, notificationMessage }) => {
+  const errorStyle = {
+    color: "red",
+    background: "lightgrey",
+    fontSize: 20,
+    borderStyle: "solid",
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 10,
+  };
+
+  const notificationStyle = {
+    ...errorStyle,
+    color: "green",
+  };
+
+  const message = notificationMessage || errorMessage;
+  const style = notificationMessage ? notificationStyle : errorStyle;
+
+  if (message) {
+    return <div style={style}>{message}</div>;
+  }
+};
